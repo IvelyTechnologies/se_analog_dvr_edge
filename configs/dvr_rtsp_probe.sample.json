@@ -1,0 +1,15 @@
+﻿{
+  "dvr": {
+    "ip": "192.168.1.10",
+    "username": "admin",
+    "password": "password",
+    "brand": "auto",
+    "channels": [1, 2, 3, 4]
+  },
+  "rtsp_candidates": [
+    "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=0",
+    "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=1",
+    "rtsp://{username}:{password}@{ip}:554/Streaming/Channels/{channel}01",
+    "rtsp://{username}:{password}@{ip}:554/Streaming/Channels/{channel}02"
+  ]
+}

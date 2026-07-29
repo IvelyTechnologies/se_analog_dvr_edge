@@ -1,0 +1,16 @@
+﻿[Unit]
+Description=Ively Analog DVR Edge Agent
+After=network-online.target mediamtx.service
+Wants=network-online.target mediamtx.service
+
+[Service]
+WorkingDirectory=/opt/ively/analog-dvr-edge
+Environment=PYTHONPATH=/opt/ively/analog-dvr-edge
+ExecStart=/opt/ively/analog-dvr-edge/installer/run-analog-dvr-edge.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

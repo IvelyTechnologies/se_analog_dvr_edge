@@ -1,0 +1,27 @@
+﻿{
+  "site_prefix": "loshitha_analog_dvr",
+  "dvr": {
+    "ip": "192.168.1.10",
+    "username": "admin",
+    "password": "password",
+    "channels": [1, 2, 3, 4]
+  },
+  "media": {
+    "rtsp_publish_host": "127.0.0.1",
+    "rtsp_publish_port": 8554,
+    "width": 640,
+    "height": 360,
+    "fps": 10,
+    "bitrate": "512k",
+    "maxrate": "580k",
+    "bufsize": "1024k"
+  },
+  "rtsp_candidates": [
+    "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=0",
+    "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=1",
+    "rtsp://{username}:{password}@{ip}:554/Streaming/Channels/{channel}01",
+    "rtsp://{username}:{password}@{ip}:554/Streaming/Channels/{channel}02",
+    "rtsp://{username}:{password}@{ip}:554/ch{channel:02d}/0",
+    "rtsp://{username}:{password}@{ip}:554/ch{channel:02d}/1"
+  ]
+}

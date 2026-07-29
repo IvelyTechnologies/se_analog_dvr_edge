@@ -1,0 +1,14 @@
+﻿{
+  "input": "/dev/video0",
+  "frame_width": 1920,
+  "frame_height": 1080,
+  "fps": 10,
+  "output_dir": "/tmp/analog_dvr_crops",
+  "layout": "2x2",
+  "cameras": [
+    { "name": "analog_dvr_cam1_low", "x": 0, "y": 0, "w": 960, "h": 540 },
+    { "name": "analog_dvr_cam2_low", "x": 960, "y": 0, "w": 960, "h": 540 },
+    { "name": "analog_dvr_cam3_low", "x": 0, "y": 540, "w": 960, "h": 540 },
+    { "name": "analog_dvr_cam4_low", "x": 960, "y": 540, "w": 960, "h": 540 }
+  ]
+}

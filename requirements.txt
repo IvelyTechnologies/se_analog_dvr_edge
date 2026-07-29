@@ -1,0 +1,2 @@
+﻿# Python dependencies
+# OpenCV is only needed for optional HDMI crop experiments.
