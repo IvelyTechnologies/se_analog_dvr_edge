@@ -1,4 +1,4 @@
-﻿# DVR RTSP Notes
+# DVR RTSP Notes
 
 Try the DVR vendor mobile app information first. The app usually works because the DVR has one of these:
 

@@ -1,4 +1,4 @@
-﻿# Feasibility Decision
+# Feasibility Decision
 
 ## Can we use analog DVR cameras?
 

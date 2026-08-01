@@ -1,4 +1,4 @@
-﻿import shlex
+import shlex
 
 
 def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> list[str]:

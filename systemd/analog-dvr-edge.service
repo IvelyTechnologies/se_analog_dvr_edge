@@ -1,4 +1,4 @@
-﻿[Unit]
+[Unit]
 Description=Ively Analog DVR Edge Agent
 After=network-online.target mediamtx.service
 Wants=network-online.target mediamtx.service

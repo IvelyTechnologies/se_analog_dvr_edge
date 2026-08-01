@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import json
 import signal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
