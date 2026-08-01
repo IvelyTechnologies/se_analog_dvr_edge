@@ -1,4 +1,4 @@
-﻿# Production Guide
+# Production Guide
 
 Ively Analog DVR Edge is a standalone edge service for analog DVR per-channel RTSP ingestion.
 

@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import signal
 import time
 

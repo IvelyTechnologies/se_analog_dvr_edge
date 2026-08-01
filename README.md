@@ -1,8 +1,8 @@
-﻿# SE Analog DVR Edge
+# SE Analog DVR Edge
 
-Separate edge-side agent for analog DVR channel streaming.
+Production edge-side agent for analog DVR channel streaming.
 
-This project is for DVRs where analog cameras are connected by BNC/coax, but the DVR exposes each channel as RTSP. It publishes each DVR channel into the same MediaMTX style used by Ively Edge, without touching the existing IP camera edge pipeline.
+This project is for customer sites where analog cameras are connected to a DVR by BNC/coax, and the DVR exposes each camera channel as RTSP/ONVIF. It publishes each DVR channel into MediaMTX using the same stream style consumed by SmartEye backend, dashboard, and admin.
 
 ## Main Flow
 
@@ -10,18 +10,21 @@ This project is for DVRs where analog cameras are connected by BNC/coax, but the
 Analog Camera -> DVR Channel RTSP -> analog-dvr-edge FFmpeg worker -> MediaMTX -> Backend RTSP/HLS/WebRTC -> Dashboard
 ```
 
-## What This Project Does
+## Product Features
 
-- Runs as a systemd service, similar to Ively Edge.
-- Provides a local provisioning API on port 8090.
-- Supports config, probe, start, stop, reload, and status endpoints.
-
+- Runs as `analog-dvr-edge.service` under systemd.
+- Starts automatically after reboot.
+- Provides local HTTP API on port `8090`.
+- Supports health, version, diagnostics, config, probe, reload, stop, and status endpoints.
 - Probes DVR per-channel RTSP URLs.
-- Starts one FFmpeg publisher per working channel.
+- Starts one FFmpeg publisher per working DVR channel.
 - Publishes each channel into MediaMTX as browser-safe H.264.
-- Keeps stream names separate from current IP camera streams.
+- Keeps analog DVR streams separate from existing IP camera edge streams.
+- Does not modify `se_backend`, `se_dashboard`, `se_admin`, or `se_ively_edge`.
 
-Example stream names:
+## Stream Names
+
+Example for `site_prefix=loshitha_analog_dvr`:
 
 ```text
 loshitha_analog_dvr_ch1_low
@@ -30,41 +33,49 @@ loshitha_analog_dvr_ch3_low
 loshitha_analog_dvr_ch4_low
 ```
 
-## What This Project Does Not Do Yet
+Backend can consume:
 
-- It does not modify `se_backend`.
-- It does not modify `se_dashboard` or `se_admin`.
-- It does not replace `se_ively_edge`.
-- It does not use HDMI crop as the main solution.
-
-## First Test
-
-Edit config:
-
-```bash
-cp configs/dvr_channels.sample.json configs/dvr_channels.json
-nano configs/dvr_channels.json
+```text
+rtsp://10.20.0.2:8554/loshitha_analog_dvr_ch1_low
+https://api.ivelytech.com/edge-stream/10.20.0.2/loshitha_analog_dvr_ch1_low/index.m3u8
+https://api.ivelytech.com/edge-webrtc/10.20.0.2/loshitha_analog_dvr_ch1_low/whep
 ```
 
-Probe DVR channels:
+## Install On Mini PC
 
 ```bash
-python3 -m agent.main --config configs/dvr_channels.json --probe-only
+cd ~/Downloads/se_analog_dvr_edge
+sudo bash installer/install.sh
+sudo nano /opt/ively/analog-dvr-edge/configs/dvr_channels.json
+sudo systemctl restart analog-dvr-edge
 ```
 
-Run locally:
+## Verify Service
 
 ```bash
-python3 -m agent.main --config configs/dvr_channels.json
+curl -s http://127.0.0.1:8090/health
+curl -s http://127.0.0.1:8090/diagnostics
+curl -s -X POST http://127.0.0.1:8090/probe
+curl -s -X POST http://127.0.0.1:8090/workers/reload
+curl -s http://127.0.0.1:8090/status
 ```
 
-Check from backend server:
+## Verify Stream On Mini PC
 
 ```bash
-ffprobe -v error -rtsp_transport tcp rtsp://10.20.0.2:8554/loshitha_analog_dvr_ch1_low -show_entries stream=codec_name,width,height -of default=nw=1
+ffprobe -v error -rtsp_transport tcp \
+"rtsp://127.0.0.1:8554/loshitha_analog_dvr_ch1_low" \
+-show_entries stream=codec_name,width,height -of default=nw=1
 ```
 
-## Production Install Later
+## Verify Stream From Backend Server
 
-Use files under `installer/` and `systemd/` on the Mini PC after DVR RTSP URLs are confirmed.
+```bash
+ffprobe -v error -rtsp_transport tcp \
+"rtsp://10.20.0.2:8554/loshitha_analog_dvr_ch1_low" \
+-show_entries stream=codec_name,width,height -of default=nw=1
+```
 
+## Requirement
+
+The DVR must expose per-channel RTSP/ONVIF locally. If the DVR only supports vendor cloud/P2P mobile app viewing and does not expose local RTSP/ONVIF, SmartEye cannot reliably consume individual analog channels from that DVR.

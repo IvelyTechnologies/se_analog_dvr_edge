@@ -1,4 +1,4 @@
-﻿# Analog DVR Edge Complete Setup Guide
+# Analog DVR Edge Complete Setup Guide
 
 This guide is for installing analog DVR camera streaming without changing the existing Ively IP camera edge pipeline.
 

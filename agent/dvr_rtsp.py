@@ -1,4 +1,4 @@
-﻿import subprocess
+import subprocess
 from urllib.parse import quote
 
 

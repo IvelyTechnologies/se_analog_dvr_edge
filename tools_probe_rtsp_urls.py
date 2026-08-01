@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 import json
 import subprocess
 from urllib.parse import quote

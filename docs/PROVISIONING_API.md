@@ -1,4 +1,4 @@
-﻿# Provisioning API
+# Provisioning API
 
 After install, analog DVR edge exposes a local HTTP API on port `8090`.
 

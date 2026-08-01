@@ -1,4 +1,4 @@
-﻿# Install And Test
+# Install And Test
 
 On Mini PC:
 
