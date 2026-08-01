@@ -12,6 +12,10 @@ Analog Camera -> DVR Channel RTSP -> analog-dvr-edge FFmpeg worker -> MediaMTX -
 
 ## What This Project Does
 
+- Runs as a systemd service, similar to Ively Edge.
+- Provides a local provisioning API on port 8090.
+- Supports config, probe, start, stop, reload, and status endpoints.
+
 - Probes DVR per-channel RTSP URLs.
 - Starts one FFmpeg publisher per working channel.
 - Publishes each channel into MediaMTX as browser-safe H.264.
@@ -63,3 +67,4 @@ ffprobe -v error -rtsp_transport tcp rtsp://10.20.0.2:8554/loshitha_analog_dvr_c
 ## Production Install Later
 
 Use files under `installer/` and `systemd/` on the Mini PC after DVR RTSP URLs are confirmed.
+
