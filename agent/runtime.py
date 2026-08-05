@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from agent.config import DEFAULT_CONFIG_PATH, load_config, stream_name
-from agent.dvr_rtsp import find_working_url
+from agent.dvr_rtsp import find_working_url, redact_rtsp_url
 from agent.logging_config import logger
 from agent.worker import ChannelWorker
 
@@ -29,6 +29,30 @@ class AnalogDvrRuntime:
         tmp.replace(path)
         logger.info("config saved path=%s", path)
 
+
+    def public_config(self) -> dict:
+        """Return configuration without the DVR password."""
+        config = json.loads(json.dumps(self.load()))
+        dvr = config.get("dvr") or {}
+        if dvr.get("password"):
+            dvr["password"] = "***"
+        return config
+
+    @staticmethod
+    def _public_probe_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        public: list[dict[str, Any]] = []
+        for item in results:
+            copy = dict(item)
+            copy["selected_url"] = redact_rtsp_url(copy.get("selected_url"))
+            copy["attempts"] = [
+                {**attempt, "url": redact_rtsp_url(attempt.get("url"))}
+                for attempt in item.get("attempts", [])
+            ]
+            public.append(copy)
+        return public
+
+    def public_probe(self) -> list[dict[str, Any]]:
+        return self._public_probe_results(self.probe())
     def build_publish_url(self, media: dict, name: str) -> str:
         host = media.get("rtsp_publish_host", "127.0.0.1")
         port = int(media.get("rtsp_publish_port", 8554))
@@ -100,6 +124,9 @@ class AnalogDvrRuntime:
                 "ok": True,
                 "running": self.running,
                 "config_path": self.config_path,
-                "workers": [worker.status() for worker in self.workers],
-                "last_probe": self.last_probe,
+                "workers": [
+                    {**worker.status(), "input_url": redact_rtsp_url(worker.status()["input_url"])}
+                    for worker in self.workers
+                ],
+                "last_probe": self._public_probe_results(self.last_probe),
             }

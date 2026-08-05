@@ -26,13 +26,12 @@ if command -v rsync >/dev/null 2>&1; then
     --exclude '*.pyc' \
     --exclude '.git/' \
     --exclude '.idea/' \
+    --exclude 'configs/dvr_channels.json' \
     "$SRC_DIR/" "$DEST/"
 else
-  sudo find "$DEST" -mindepth 1 \
-    ! -path "$DEST/configs/dvr_channels.json" \
-    ! -path "$DEST/venv" \
-    ! -path "$DEST/venv/*" \
-    -exec rm -rf {} + 2>/dev/null || true
+  # Preserve the customer DVR configuration when rsync is unavailable.
+  # A plain copy can leave an obsolete source file behind, but it must never
+  # delete the only copy of dvr_channels.json during an upgrade.
   sudo cp -a "$SRC_DIR/." "$DEST/"
   sudo rm -rf "$DEST/.git" "$DEST/.idea" "$DEST/venv"
   sudo find "$DEST" -type d -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true

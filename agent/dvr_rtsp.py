@@ -1,5 +1,17 @@
 import subprocess
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
+
+
+def redact_rtsp_url(url: str | None) -> str | None:
+    """Hide DVR credentials before returning a URL through the local API."""
+    if not url:
+        return url
+    parts = urlsplit(url)
+    if "@" not in parts.netloc:
+        return url
+    credentials, host = parts.netloc.rsplit("@", 1)
+    username = credentials.split(":", 1)[0]
+    return urlunsplit((parts.scheme, f"{username}:***@{host}", parts.path, parts.query, parts.fragment))
 
 
 def format_rtsp_url(template: str, dvr: dict, channel: int) -> str:
