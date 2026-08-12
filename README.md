@@ -22,6 +22,12 @@ Analog Camera -> DVR Channel RTSP -> analog-dvr-edge FFmpeg worker -> MediaMTX -
 - Keeps analog DVR streams separate from existing IP camera edge streams.
 - Does not modify `se_backend`, `se_dashboard`, `se_admin`, or `se_ively_edge`.
 
+## Video Modes
+
+Use `"video_mode": "copy"` when the DVR stream is already H.264. It republishes the original stream without CPU-heavy encoding and is recommended for multiple DVR channels.
+
+Use `"video_mode": "transcode"` only for H.265 input or when resizing, FPS conversion, or bitrate reduction is required. In transcode mode, optional `"preset": "ultrafast"` reduces CPU use.
+
 ## Stream Names
 
 Example for `site_prefix=loshitha_analog_dvr`:
