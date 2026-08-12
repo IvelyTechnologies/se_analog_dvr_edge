@@ -42,9 +42,9 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/status":
                 self._send_json(runtime.status())
             elif path == "/config":
-                self._send_json(runtime.load())
+                self._send_json(runtime.public_config())
             elif path == "/probe":
-                self._send_json({"ok": True, "results": runtime.probe()})
+                self._send_json({"ok": True, "results": runtime.public_probe()})
             elif path == "/diagnostics":
                 self._send_json({"ok": True, "diagnostics": diagnostics(), "runtime": runtime.status()})
             else:
@@ -61,7 +61,7 @@ class Handler(BaseHTTPRequestHandler):
                 runtime.save_config(data)
                 self._send_json({"ok": True, "config_path": runtime.config_path})
             elif path == "/probe":
-                self._send_json({"ok": True, "results": runtime.probe()})
+                self._send_json({"ok": True, "results": runtime.public_probe()})
             elif path in ("/start", "/reload", "/workers/reload"):
                 self._send_json(runtime.start())
             elif path == "/stop":
@@ -80,7 +80,7 @@ def main() -> int:
     global runtime
     parser = argparse.ArgumentParser(description="Analog DVR edge HTTP service")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8090)
     parser.add_argument("--no-autostart", action="store_true")
     args = parser.parse_args()
