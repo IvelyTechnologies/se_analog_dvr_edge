@@ -9,6 +9,7 @@
   "media": {
     "rtsp_publish_host": "127.0.0.1",
     "rtsp_publish_port": 8554,
+    "video_mode": "copy",
     "width": 640,
     "height": 360,
     "fps": 10,
