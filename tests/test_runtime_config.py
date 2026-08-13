@@ -42,3 +42,24 @@ def test_start_schedules_recovery_when_all_dvr_channels_are_unreachable(tmp_path
     assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
     assert runtime._recovery_thread is not None
     runtime.stop()
+
+
+def test_start_does_not_block_publishers_when_paths_were_added(tmp_path, monkeypatch):
+    path = tmp_path / "dvr_channels.json"
+    path.write_text(
+        json.dumps({
+            "site_prefix": "site_dvr",
+            "dvr": {"ip": "192.168.1.10", "channels": [1]},
+            "media": {"video_mode": "copy"},
+            "rtsp_candidates": ["rtsp://{ip}/{channel}"],
+        }),
+        encoding="utf-8",
+    )
+    runtime = AnalogDvrRuntime(str(path))
+    monkeypatch.setattr(runtime, "_ensure_mediamtx_paths", lambda _config: ["site_dvr_ch1_low"])
+    monkeypatch.setattr(runtime, "probe", lambda: [])
+
+    status = runtime.start()
+
+    assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
+    runtime.stop()

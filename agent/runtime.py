@@ -125,11 +125,13 @@ class AnalogDvrRuntime:
                 return self.status()
 
             if added_paths:
-                self.last_start_error = (
-                    "MediaMTX paths registered; restart mediamtx, then reload analog-dvr-edge."
+                # MediaMTX only reads its path configuration at startup, but
+                # ChannelWorker already retries publication. Start workers now
+                # so they recover automatically as soon as MediaMTX reloads.
+                logger.warning(
+                    "MediaMTX paths registered; DVR publishers will retry until MediaMTX reloads. paths=%s",
+                    added_paths,
                 )
-                logger.warning("%s paths=%s", self.last_start_error, added_paths)
-                return self.status()
 
             media = cfg.get("media") or {}
             probe_results = self.probe()
