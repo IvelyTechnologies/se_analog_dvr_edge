@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from agent.config import DEFAULT_CONFIG_PATH, load_config, stream_name
+from agent.config import DEFAULT_CONFIG_PATH, load_config, stream_name, validate_config
 from agent.dvr_rtsp import find_working_url, redact_rtsp_url
 from agent.logging_config import logger
 from agent.mediamtx_paths import ensure_publisher_paths
@@ -23,6 +23,18 @@ class AnalogDvrRuntime:
         return load_config(self.config_path)
 
     def save_config(self, config: dict) -> None:
+        if not isinstance(config, dict):
+            raise ValueError("configuration must be an object")
+
+        # The local setup page never reads the real password back. A blank or
+        # masked password means "keep the saved value" during an update.
+        previous = self.load()
+        dvr = config.setdefault("dvr", {})
+        password = str(dvr.get("password") or "").strip()
+        if password in {"", "***"}:
+            dvr["password"] = (previous.get("dvr") or {}).get("password", "")
+
+        validate_config(config)
         path = Path(self.config_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(".json.tmp")

@@ -14,7 +14,7 @@ Analog Camera -> DVR Channel RTSP -> analog-dvr-edge FFmpeg worker -> MediaMTX -
 
 - Runs as `analog-dvr-edge.service` under systemd.
 - Starts automatically after reboot.
-- Provides local HTTP API on port `8090`.
+- Provides a local setup screen and HTTP API on port `8090`.
 - Supports health, version, diagnostics, config, probe, reload, stop, and status endpoints.
 - Probes DVR per-channel RTSP URLs.
 - Starts one FFmpeg publisher per working DVR channel.
@@ -52,9 +52,12 @@ https://api.ivelytech.com/edge-webrtc/10.20.0.2/loshitha_analog_dvr_ch1_low/whep
 ```bash
 cd ~/Downloads/se_analog_dvr_edge
 sudo bash installer/install.sh
-sudo nano /opt/ively/analog-dvr-edge/configs/dvr_channels.json
 sudo systemctl restart analog-dvr-edge
 ```
+
+Open the Mini PC browser at `http://127.0.0.1:8090/setup` to configure DVR IP,
+credentials, channels, RTSP candidates, and publish mode. Leaving the password
+blank during an update keeps the previously saved password.
 
 ## Verify Service
 
