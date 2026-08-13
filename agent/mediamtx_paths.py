@@ -28,8 +28,19 @@ def ensure_publisher_paths(stream_names: Iterable[str], config_path: str | Path)
             paths_end = index
             break
 
-    existing = {match.group(1) for line in lines[paths_start + 1:paths_end]
-                if (match := re.fullmatch(r"\s{2}([A-Za-z0-9][A-Za-z0-9_.-]*):\s*(?:#.*)?\n?", line))}
+    # Do not use a regex which includes ``\s`` here: it can consume a line
+    # ending and make CRLF/LF MediaMTX configurations behave differently.
+    # A path declaration is an indented, valid stream name ending with ':'.
+    existing: set[str] = set()
+    for line in lines[paths_start + 1 : paths_end]:
+        if not line.startswith((" ", "\t")):
+            continue
+        candidate = line.strip()
+        if not candidate.endswith(":"):
+            continue
+        candidate = candidate[:-1].strip()
+        if _STREAM_NAME.fullmatch(candidate):
+            existing.add(candidate)
     missing = [name for name in names if name not in existing]
     if not missing:
         return []
