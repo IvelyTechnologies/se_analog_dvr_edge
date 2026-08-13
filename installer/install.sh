@@ -55,7 +55,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE"
 
 echo "Installed $SERVICE to $DEST"
-echo "Edit config: sudo nano $DEST/configs/dvr_channels.json"
+echo "Setup UI (open on the Mini PC): http://127.0.0.1:8090/setup"
+echo "Fallback config file: sudo nano $DEST/configs/dvr_channels.json"
 echo "Start: sudo systemctl restart $SERVICE"
 echo "Health: curl -s http://127.0.0.1:8090/health"
 echo "Probe: curl -s -X POST http://127.0.0.1:8090/probe"

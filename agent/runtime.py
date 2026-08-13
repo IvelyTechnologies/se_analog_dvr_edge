@@ -18,6 +18,8 @@ class AnalogDvrRuntime:
         self.last_probe: list[dict[str, Any]] = []
         self.running = False
         self.last_start_error: str | None = None
+        self._stop_event = threading.Event()
+        self._recovery_thread: threading.Thread | None = None
 
     def load(self) -> dict:
         return load_config(self.config_path)
@@ -111,6 +113,7 @@ class AnalogDvrRuntime:
 
     def start(self) -> dict[str, Any]:
         with self.lock:
+            self._stop_event.clear()
             self.stop_locked()
             self.last_start_error = None
             cfg = self.load()
@@ -146,8 +149,30 @@ class AnalogDvrRuntime:
                 self.workers.append(worker)
                 worker.start()
             self.running = bool(self.workers)
+            if not self.running:
+                self.last_start_error = "No DVR channel is reachable yet; retrying automatically."
+                self._schedule_recovery_locked()
             logger.info("runtime started workers=%s", len(self.workers))
             return self.status()
+
+    def _schedule_recovery_locked(self) -> None:
+        """Retry discovery after boot when the DVR network is not ready yet."""
+        if self._recovery_thread and self._recovery_thread.is_alive():
+            return
+
+        def retry_until_running() -> None:
+            while not self._stop_event.wait(10):
+                result = self.start()
+                if result["running"]:
+                    logger.info("DVR recovery succeeded")
+                    return
+
+        self._recovery_thread = threading.Thread(
+            target=retry_until_running,
+            daemon=True,
+            name="analog-dvr-recovery",
+        )
+        self._recovery_thread.start()
 
     def stop_locked(self) -> None:
         for worker in self.workers:
@@ -157,6 +182,7 @@ class AnalogDvrRuntime:
 
     def stop(self) -> dict[str, Any]:
         with self.lock:
+            self._stop_event.set()
             self.stop_locked()
             logger.info("runtime stopped")
             return self.status()

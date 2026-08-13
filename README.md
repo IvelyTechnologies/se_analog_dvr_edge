@@ -59,6 +59,13 @@ Open the Mini PC browser at `http://127.0.0.1:8090/setup` to configure DVR IP,
 credentials, channels, RTSP candidates, and publish mode. Leaving the password
 blank during an update keeps the previously saved password.
 
+### Recovery Behavior
+
+- The service starts automatically after a Mini PC reboot and waits for MediaMTX.
+- If the DVR or local LAN is unavailable during boot, it retries DVR discovery every 10 seconds.
+- If an active DVR RTSP connection drops, its FFmpeg publisher exits within the timeout and retries every 5 seconds.
+- The Ively Edge MediaMTX generator preserves Analog DVR publisher paths, so an NVR Edge update does not remove Analog streams.
+
 ## Verify Service
 
 ```bash
