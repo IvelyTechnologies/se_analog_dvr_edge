@@ -1,4 +1,14 @@
+import os
 import shlex
+
+
+def _reorder_queue_size() -> str:
+    """Keep RTSP jitter tolerance without accumulating stale live frames."""
+    raw = (os.environ.get("IVELY_ANALOG_FFMPEG_REORDER_QUEUE_SIZE") or "64").strip()
+    try:
+        return str(min(256, max(0, int(raw))))
+    except ValueError:
+        return "64"
 
 
 def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> list[str]:
@@ -16,7 +26,7 @@ def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> lis
         "-fflags", "+genpts+discardcorrupt", "-err_detect", "ignore_err",
         "-ec", "guess_mvs+deblock", "-use_wallclock_as_timestamps", "1",
         "-analyzeduration", "5000000", "-probesize", "5000000",
-        "-reorder_queue_size", "1024", "-max_delay", "500000",
+        "-reorder_queue_size", _reorder_queue_size(), "-max_delay", "500000",
         "-i", input_url, "-map", "0:v:0", "-an",
     ]
 
