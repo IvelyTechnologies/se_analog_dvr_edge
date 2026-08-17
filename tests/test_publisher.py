@@ -9,6 +9,7 @@ def test_publisher_command_has_rtsp_timeout_for_network_recovery():
     )
 
     assert command[command.index("-timeout") + 1] == "10000000"
+    assert command[command.index("-reorder_queue_size") + 1] == "64"
     assert command[-7:] == [
         "-c:v", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", "rtsp://127.0.0.1:8554/site_analog_dvr_ch1_low",
     ]
