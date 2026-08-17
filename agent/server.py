@@ -4,6 +4,7 @@ import signal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from agent.cloud_api import CloudApiError, list_customers, list_site_cameras, list_sites
 from agent.config import DEFAULT_CONFIG_PATH
 from agent.diagnostics import diagnostics
 from agent.logging_config import logger
@@ -58,8 +59,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "results": runtime.public_probe()})
             elif path == "/diagnostics":
                 self._send_json({"ok": True, "diagnostics": diagnostics(), "runtime": runtime.status()})
+            elif path == "/api/provision/customers":
+                self._send_json({"ok": True, "customers": list_customers()})
+            elif path.startswith("/api/provision/customers/") and path.endswith("/sites"):
+                self._send_json({"ok": True, "sites": list_sites(int(path.split("/")[4]))})
+            elif path.startswith("/api/provision/sites/") and path.endswith("/cameras"):
+                self._send_json({"ok": True, "cameras": list_site_cameras(int(path.split("/")[4]))})
             else:
                 self._send_json({"ok": False, "error": "not found"}, 404)
+        except CloudApiError as exc:
+            self._send_json({"ok": False, "error": str(exc)}, 502)
         except Exception as exc:
             logger.exception("GET %s failed", path)
             self._send_json({"ok": False, "error": str(exc)}, 500)

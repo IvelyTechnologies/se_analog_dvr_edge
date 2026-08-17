@@ -59,6 +59,37 @@ Open the Mini PC browser at `http://127.0.0.1:8090/setup` to configure DVR IP,
 credentials, channels, RTSP candidates, and publish mode. Leaving the password
 blank during an update keeps the previously saved password.
 
+### Cloud Customer And Site Selection
+
+The setup page uses the same authenticated cloud REST API pattern as the IP
+camera Edge provisioner. It does not connect to the production database.
+Configure a service token on the Mini PC before using Customer, Site, and
+dashboard-camera selection:
+
+```bash
+sudo systemctl edit analog-dvr-edge
+```
+
+Add only the following, using the existing service token value:
+
+```ini
+[Service]
+Environment="IVELY_API_BASE=https://api.ivelytech.com"
+Environment="IVELY_API_TOKEN=REPLACE_WITH_EDGE_SERVICE_TOKEN"
+```
+
+Then apply it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart analog-dvr-edge
+```
+
+The browser calls the local Mini PC service only. The local service calls the
+cloud API, keeps the token private, and stores selected customer/site/camera
+metadata alongside the DVR configuration. It does not alter stream names,
+FFmpeg workers, or existing NVR Edge publishing.
+
 ### Recovery Behavior
 
 - The service starts automatically after a Mini PC reboot and waits for MediaMTX.
