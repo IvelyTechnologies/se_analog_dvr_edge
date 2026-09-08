@@ -231,6 +231,18 @@ curl -s "https://api.ivelytech.com/edge-stream/EDGE_TUNNEL_IP/loshitha_analog_dv
 
 The response must contain \`#EXTM3U\` and \`.ts\` segments.
 
+### Mobile HLS Behavior
+
+For a DVR-only Mini PC, enable **Standalone Mobile HLS** in the local setup UI.
+Analog DVR Edge then configures the local MediaMTX service with two-second
+segments and 45 retained segments. The dashboard player intentionally starts
+around 30 seconds behind live, which prevents short mobile-data delays from
+freezing the video.
+
+For a Mini PC that already runs NVR Ively Edge, choose **Use existing MediaMTX
+settings** instead. Ively Edge owns the shared MediaMTX file in that case, so a
+second HLS configuration is not written by Analog DVR Edge.
+
 WebRTC endpoint:
 
 \`\`\`text
@@ -323,3 +335,14 @@ sudo systemctl restart analog-dvr-edge
 \`\`\`
 
 The installer now preserves the live \`dvr_channels.json\` configuration.
+
+When the Ively Edge project is upgraded at the same time, it regenerates the
+shared MediaMTX configuration. Complete that upgrade first, then run:
+
+\`\`\`bash
+sudo systemctl restart ively-agent
+sleep 5
+sudo systemctl restart analog-dvr-edge
+\`\`\`
+
+This ensures the analog publishers reconnect to the regenerated MediaMTX paths.

@@ -17,6 +17,12 @@
     "maxrate": "580k",
     "bufsize": "1024k"
   },
+  "mediamtx": {
+    "config_path": "/opt/ively/mediamtx/mediamtx.yml",
+    "manage_hls": true,
+    "hls_segment_duration": "2s",
+    "hls_segment_count": 45
+  },
   "rtsp_candidates": [
     "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=0",
     "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=1",

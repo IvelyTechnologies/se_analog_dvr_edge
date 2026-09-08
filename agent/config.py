@@ -30,6 +30,13 @@ def validate_config(cfg: dict) -> dict:
         raise ValueError("dvr.channels must contain positive channel numbers")
     if not cfg.get("rtsp_candidates"):
         raise ValueError("rtsp_candidates is required")
+    mediamtx = cfg.get("mediamtx") or {}
+    if "manage_hls" in mediamtx and not isinstance(mediamtx["manage_hls"], bool):
+        raise ValueError("mediamtx.manage_hls must be true or false")
+    if "hls_segment_count" in mediamtx:
+        count = mediamtx["hls_segment_count"]
+        if isinstance(count, bool) or not isinstance(count, int) or count < 2:
+            raise ValueError("mediamtx.hls_segment_count must be an integer of at least 2")
     return cfg
 
 
