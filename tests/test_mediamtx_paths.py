@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from agent.mediamtx_paths import ensure_publisher_paths
+from agent.mediamtx_paths import ensure_mobile_hls_settings, ensure_publisher_paths
 
 
 def test_existing_paths_are_not_registered_again(tmp_path: Path) -> None:
@@ -33,3 +33,18 @@ def test_missing_path_is_added_without_removing_existing_path(tmp_path: Path) ->
     output = config_path.read_text(encoding="utf-8")
     assert "original_camera" in output
     assert "loshitha_analog_dvr_ch1_low" in output
+
+
+def test_standalone_mobile_hls_profile_is_added_without_changing_paths(tmp_path: Path) -> None:
+    config_path = tmp_path / "mediamtx.yml"
+    config_path.write_text(
+        "logLevel: info\npaths:\n  original_camera:\n    source: publisher\n",
+        encoding="utf-8",
+    )
+
+    assert ensure_mobile_hls_settings(config_path) is True
+    output = config_path.read_text(encoding="utf-8")
+    assert "hlsSegmentDuration: 2s" in output
+    assert "hlsSegmentCount: 45" in output
+    assert "  original_camera:" in output
+    assert ensure_mobile_hls_settings(config_path) is False

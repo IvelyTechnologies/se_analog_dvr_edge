@@ -97,6 +97,44 @@ FFmpeg workers, or existing NVR Edge publishing.
 - If an active DVR RTSP connection drops, its FFmpeg publisher exits within the timeout and retries every 5 seconds.
 - The Ively Edge MediaMTX generator preserves Analog DVR publisher paths, so an NVR Edge update does not remove Analog streams.
 
+### Mobile HLS Playback Buffer
+
+Analog DVR Edge and Ively Edge publish into the same local MediaMTX service.
+For an existing NVR + DVR installation, Ively Edge owns HLS segment retention
+and Analog DVR Edge must use the existing settings.
+
+For a DVR-only installation, the setup UI enables **Standalone Mobile HLS** by
+default. This writes the following profile to MediaMTX and restarts it once:
+
+```text
+hlsSegmentDuration: 2s
+hlsSegmentCount: 45
+```
+
+For the mobile HLS playback profile, Ively Edge retains 45 two-second segments
+(about 90 seconds). The dashboard player starts roughly 30 seconds behind the
+live edge. This gives phone networks time to fetch already-created segments and
+applies equally to NVR and analog DVR streams.
+
+When an Ively Edge upgrade regenerates MediaMTX configuration, restart both
+publishers in this order. For a DVR-only installation, restart only
+`analog-dvr-edge` after saving the UI configuration.
+
+```bash
+sudo systemctl restart ively-agent
+sleep 5
+sudo systemctl restart analog-dvr-edge
+```
+
+Then confirm an analog path has republished before checking the dashboard:
+
+```bash
+ffprobe -v error -rtsp_transport tcp \
+  "rtsp://127.0.0.1:8554/your_site_ch1_low" \
+  -show_entries stream=codec_name,width,height -of default=nw=1
+curl -sSL "http://127.0.0.1:8888/your_site_ch1_low/index.m3u8" | head
+```
+
 ## Verify Service
 
 ```bash

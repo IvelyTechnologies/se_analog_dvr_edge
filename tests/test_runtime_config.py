@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from agent.runtime import AnalogDvrRuntime
 
@@ -63,3 +64,38 @@ def test_start_does_not_block_publishers_when_paths_were_added(tmp_path, monkeyp
 
     assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
     runtime.stop()
+
+
+def test_standalone_hls_is_opt_in_and_restarts_mediamtx(tmp_path: Path, monkeypatch) -> None:
+    config_path = tmp_path / "mediamtx.yml"
+    config_path.write_text("paths:\n", encoding="utf-8")
+    runtime = AnalogDvrRuntime()
+    restarted: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        restarted.append(command)
+
+    monkeypatch.setattr("agent.runtime.subprocess.run", fake_run)
+    config = {
+        "mediamtx": {
+            "manage_hls": True,
+            "config_path": str(config_path),
+            "hls_segment_duration": "2s",
+            "hls_segment_count": 45,
+        }
+    }
+
+    assert runtime._configure_standalone_mobile_hls(config) is True
+    assert restarted == [["systemctl", "restart", "mediamtx"]]
+    assert runtime._configure_standalone_mobile_hls(config) is False
+    assert restarted == [["systemctl", "restart", "mediamtx"]]
+
+
+def test_shared_mediamtx_hls_is_not_changed_without_opt_in(tmp_path: Path) -> None:
+    config_path = tmp_path / "mediamtx.yml"
+    original = "hlsSegmentCount: 15\npaths:\n"
+    config_path.write_text(original, encoding="utf-8")
+    runtime = AnalogDvrRuntime()
+
+    assert runtime._configure_standalone_mobile_hls({"mediamtx": {"config_path": str(config_path)}}) is False
+    assert config_path.read_text(encoding="utf-8") == original

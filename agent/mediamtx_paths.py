@@ -6,6 +6,64 @@ from pathlib import Path
 from typing import Iterable
 
 _STREAM_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+_HLS_DURATION = re.compile(r"^[1-9][0-9]*(?:ms|s)$")
+
+
+def ensure_mobile_hls_settings(
+    config_path: str | Path,
+    segment_duration: str = "2s",
+    segment_count: int = 45,
+) -> bool:
+    """Set the standalone DVR mobile HLS retention without touching paths."""
+    duration = str(segment_duration).strip()
+    if not _HLS_DURATION.fullmatch(duration):
+        raise ValueError("MediaMTX HLS segment duration must be a positive value ending in ms or s")
+    if isinstance(segment_count, bool) or int(segment_count) < 2:
+        raise ValueError("MediaMTX HLS segment count must be at least 2")
+
+    path = Path(config_path)
+    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+    desired = {
+        "hlsSegmentDuration": duration,
+        "hlsSegmentCount": str(int(segment_count)),
+    }
+    changed = False
+
+    for key, value in desired.items():
+        index = next(
+            (
+                line_index
+                for line_index, line in enumerate(lines)
+                if re.fullmatch(rf"{re.escape(key)}:\s*.*(?:\n)?", line)
+            ),
+            None,
+        )
+        replacement = f"{key}: {value}\n"
+        if index is None:
+            paths_index = next(
+                (
+                    line_index
+                    for line_index, line in enumerate(lines)
+                    if re.fullmatch(r"paths:\s*(?:#.*)?\n?", line)
+                ),
+                len(lines),
+            )
+            lines.insert(paths_index, replacement)
+            changed = True
+        elif lines[index] != replacement:
+            lines[index] = replacement
+            changed = True
+
+    if not changed:
+        return False
+
+    backup = path.with_name(f"{path.name}.before-analog-dvr")
+    if not backup.exists():
+        shutil.copy2(path, backup)
+    temporary = path.with_name(f"{path.name}.analog-dvr.tmp")
+    temporary.write_text("".join(lines), encoding="utf-8")
+    temporary.replace(path)
+    return True
 
 def ensure_publisher_paths(stream_names: Iterable[str], config_path: str | Path) -> list[str]:
     """Add missing publisher paths without changing existing MediaMTX entries."""

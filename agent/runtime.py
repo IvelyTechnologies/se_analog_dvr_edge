@@ -1,4 +1,5 @@
 import json
+import subprocess
 import threading
 from pathlib import Path
 from typing import Any
@@ -6,7 +7,7 @@ from typing import Any
 from agent.config import DEFAULT_CONFIG_PATH, load_config, stream_name, validate_config
 from agent.dvr_rtsp import find_working_url, redact_rtsp_url
 from agent.logging_config import logger
-from agent.mediamtx_paths import ensure_publisher_paths
+from agent.mediamtx_paths import ensure_mobile_hls_settings, ensure_publisher_paths
 from agent.worker import ChannelWorker
 
 
@@ -79,6 +80,30 @@ class AnalogDvrRuntime:
             ),
         )
 
+    def _configure_standalone_mobile_hls(self, config: dict) -> bool:
+        """Configure HLS only when this DVR install explicitly owns it."""
+        mediamtx = config.get("mediamtx") or {}
+        if not mediamtx.get("manage_hls", False):
+            return False
+        config_path = mediamtx.get("config_path", "/opt/ively/mediamtx/mediamtx.yml")
+        changed = ensure_mobile_hls_settings(
+            config_path=config_path,
+            segment_duration=mediamtx.get("hls_segment_duration", "2s"),
+            segment_count=mediamtx.get("hls_segment_count", 45),
+        )
+        if changed:
+            # MediaMTX reads these settings only at startup. This flag is for
+            # DVR-only installs, where Analog DVR Edge owns this HLS profile.
+            subprocess.run(
+                ["systemctl", "restart", "mediamtx"],
+                check=True,
+                timeout=30,
+                capture_output=True,
+                text=True,
+            )
+            logger.info("applied standalone mobile HLS profile to MediaMTX")
+        return changed
+
     def build_publish_url(self, media: dict, name: str) -> str:
         host = media.get("rtsp_publish_host", "127.0.0.1")
         port = int(media.get("rtsp_publish_port", 8554))
@@ -118,6 +143,7 @@ class AnalogDvrRuntime:
             self.last_start_error = None
             cfg = self.load()
             try:
+                self._configure_standalone_mobile_hls(cfg)
                 added_paths = self._ensure_mediamtx_paths(cfg)
             except Exception as exc:
                 self.last_start_error = str(exc)
