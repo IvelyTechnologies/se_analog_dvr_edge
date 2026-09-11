@@ -3,7 +3,6 @@
     "ip": "192.168.1.10",
     "username": "admin",
     "password": "password",
-    "brand": "auto",
     "channels": [1, 2, 3, 4]
   },
   "rtsp_candidates": [

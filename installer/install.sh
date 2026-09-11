@@ -17,6 +17,10 @@ if ! command -v ffprobe >/dev/null 2>&1; then
   echo "ffprobe is required" >&2
   exit 1
 fi
+if ! systemctl cat mediamtx.service >/dev/null 2>&1; then
+  echo "MediaMTX is required. Install the Ively Media Base (MediaMTX + WireGuard) before Analog DVR Edge." >&2
+  exit 1
+fi
 
 sudo mkdir -p "$DEST"
 if command -v rsync >/dev/null 2>&1; then
@@ -55,6 +59,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE"
 
 echo "Installed $SERVICE to $DEST"
+echo "MediaMTX prerequisite found. No ively-agent/NVR publisher is required for a DVR-only site."
 echo "Setup UI (open on the Mini PC): http://127.0.0.1:8090/setup"
 echo "Fallback config file: sudo nano $DEST/configs/dvr_channels.json"
 echo "Start: sudo systemctl restart $SERVICE"

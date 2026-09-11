@@ -81,7 +81,7 @@ class AnalogDvrRuntime:
         )
 
     def _configure_standalone_mobile_hls(self, config: dict) -> bool:
-        """Configure HLS only when this DVR install explicitly owns it."""
+        """Write HLS settings only when this DVR install explicitly owns them."""
         mediamtx = config.get("mediamtx") or {}
         if not mediamtx.get("manage_hls", False):
             return False
@@ -91,18 +91,18 @@ class AnalogDvrRuntime:
             segment_duration=mediamtx.get("hls_segment_duration", "2s"),
             segment_count=mediamtx.get("hls_segment_count", 45),
         )
-        if changed:
-            # MediaMTX reads these settings only at startup. This flag is for
-            # DVR-only installs, where Analog DVR Edge owns this HLS profile.
-            subprocess.run(
-                ["systemctl", "restart", "mediamtx"],
-                check=True,
-                timeout=30,
-                capture_output=True,
-                text=True,
-            )
-            logger.info("applied standalone mobile HLS profile to MediaMTX")
         return changed
+
+    @staticmethod
+    def _restart_mediamtx() -> None:
+        """Reload MediaMTX once after standalone settings and paths are written."""
+        subprocess.run(
+            ["systemctl", "restart", "mediamtx"],
+            check=True,
+            timeout=30,
+            capture_output=True,
+            text=True,
+        )
 
     def build_publish_url(self, media: dict, name: str) -> str:
         host = media.get("rtsp_publish_host", "127.0.0.1")
@@ -143,21 +143,34 @@ class AnalogDvrRuntime:
             self.last_start_error = None
             cfg = self.load()
             try:
-                self._configure_standalone_mobile_hls(cfg)
+                hls_changed = self._configure_standalone_mobile_hls(cfg)
                 added_paths = self._ensure_mediamtx_paths(cfg)
+                standalone_hls = bool((cfg.get("mediamtx") or {}).get("manage_hls", False))
+                if standalone_hls and (hls_changed or added_paths):
+                    # Write both settings and paths before the single restart;
+                    # otherwise first boot can load HLS settings without the
+                    # new DVR publisher paths.
+                    self._restart_mediamtx()
+                    logger.info(
+                        "restarted MediaMTX after standalone DVR configuration hls_changed=%s paths=%s",
+                        hls_changed,
+                        added_paths,
+                    )
             except Exception as exc:
                 self.last_start_error = str(exc)
                 logger.exception("could not register MediaMTX publisher paths")
                 return self.status()
 
             if added_paths:
-                # MediaMTX only reads its path configuration at startup, but
-                # ChannelWorker already retries publication. Start workers now
-                # so they recover automatically as soon as MediaMTX reloads.
-                logger.warning(
-                    "MediaMTX paths registered; DVR publishers will retry until MediaMTX reloads. paths=%s",
-                    added_paths,
-                )
+                if standalone_hls:
+                    logger.info("MediaMTX DVR publisher paths activated. paths=%s", added_paths)
+                else:
+                    # In a shared NVR + DVR install, Ively Edge owns the
+                    # MediaMTX lifecycle, so do not restart it from here.
+                    logger.warning(
+                        "MediaMTX paths registered; DVR publishers will retry until MediaMTX reloads. paths=%s",
+                        added_paths,
+                    )
 
             media = cfg.get("media") or {}
             probe_results = self.probe()
