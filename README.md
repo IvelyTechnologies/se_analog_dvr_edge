@@ -4,6 +4,9 @@ Production edge-side agent for analog DVR channel streaming.
 
 This project is for customer sites where analog cameras are connected to a DVR by BNC/coax, and the DVR exposes each camera channel as RTSP/ONVIF. It publishes each DVR channel into MediaMTX using the same stream style consumed by SmartEye backend, dashboard, and admin.
 
+For the complete vendor-neutral deployment process, see
+\`docs/COMPLETE_ANALOG_DVR_SETUP.md\`.
+
 ## Main Flow
 
 ```text
@@ -48,6 +51,12 @@ https://api.ivelytech.com/edge-webrtc/10.20.0.2/loshitha_analog_dvr_ch1_low/whep
 ```
 
 ## Install On Mini PC
+
+For a DVR-only customer, this does **not** require an NVR camera configuration
+or the `ively-agent` NVR publisher. It does require the Ively Media Base:
+MediaMTX and WireGuard must be provisioned on the Mini PC first. The installer
+checks for `mediamtx.service` and stops with a clear error if that prerequisite
+is missing.
 
 ```bash
 cd ~/Downloads/se_analog_dvr_edge

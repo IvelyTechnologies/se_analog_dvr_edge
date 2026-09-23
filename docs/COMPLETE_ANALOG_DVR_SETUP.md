@@ -1,6 +1,9 @@
 # Analog DVR Edge Complete Setup Guide
 
-This guide installs **SE Analog DVR Edge** alongside the existing Ively Edge installation on a Mini PC. It reads individual analog DVR channels over local RTSP and publishes them through the existing MediaMTX and WireGuard pipeline.
+This guide installs **SE Analog DVR Edge** on a Mini PC with the Ively Media
+Base already provisioned. It reads individual analog DVR channels over local
+RTSP and publishes them through MediaMTX and WireGuard. A DVR-only site does
+not need the `ively-agent` NVR publisher or any NVR camera configuration.
 
 ## 1. Intended Flow
 
@@ -21,21 +24,22 @@ This project does not replace the existing \`ively-agent\`. It publishes new, se
 
 The Mini PC must already have these working:
 
-- Existing Ively Edge installation
+- Ively Media Base provisioning (MediaMTX + WireGuard)
 - MediaMTX service running
 - WireGuard tunnel connected to the backend server
 - Network connection to the DVR LAN
 
-Do not install this service on a blank Mini PC until Ively Edge / MediaMTX / WireGuard provisioning has been completed.
+Do not install this service on a blank Mini PC until MediaMTX and WireGuard
+provisioning has been completed. The installer checks for `mediamtx.service`.
 
 For the first test, configure only Channel 1. Add remaining channels only after Channel 1 works end to end.
 
 ## 3. Configure the DVR
 
-For the Dahua/CP Plus DVR shown in the test:
+The menu names vary by manufacturer, but the required settings are the same:
 
 1. Sign in to the DVR local web interface.
-2. Open **Camera -> Encode -> Audio/Video**.
+2. Open the camera/channel encoding or video settings page.
 3. Select **Channel 1**.
 4. Under **Main Stream**, set:
    - Video enabled
@@ -45,41 +49,30 @@ For the Dahua/CP Plus DVR shown in the test:
    - I-frame interval: **1 second**
    - Bit rate: **768 Kb/s** if supported; otherwise use **512 Kb/s**
    - Resolution: keep the DVR-supported resolution
-5. Save or Apply.
-6. Repeat for each channel that must be used later.
+5. Enable local RTSP in the DVR network, connection, or port settings. Record
+   the RTSP port and the vendor's documented per-channel stream path.
+6. Save or Apply.
+7. Repeat for each channel that must be used later.
 
-The guide deliberately uses the Main Stream only:
-
-\`\`\`text
-subtype=0 = main stream
-subtype=1 = sub stream
-\`\`\`
-
-RTSP must be enabled in DVR Network / Connection / Port settings. The usual Dahua RTSP port is \`554\`. ONVIF is useful for discovery but is not required when direct RTSP works.
+Use the main stream when it is H.264 and the Mini PC has adequate bandwidth.
+Use a substream when bandwidth or CPU is limited. RTSP port is commonly \`554\`,
+but use the value configured on the customer DVR. ONVIF can help discovery but
+is not required when direct RTSP works.
 
 ## 4. Test DVR RTSP Before Installing the Edge Service
 
 Connect a laptop to the same local LAN/Wi-Fi as the DVR. The laptop must reach the DVR IP address.
 
-For the current DVR example:
+In VLC choose **Media -> Open Network Stream** and enter the exact RTSP URL
+from that DVR/NVR vendor documentation or working mobile/VMS setup:
 
 \`\`\`text
-DVR IP: 192.168.1.108
-Channel: 1
-RTSP port: 554
+rtsp://USERNAME:PASSWORD@DVR_IP:RTSP_PORT/VENDOR_CHANNEL_PATH
 \`\`\`
 
-In VLC choose **Media -> Open Network Stream** and enter:
-
-\`\`\`text
-rtsp://admin:YOUR_PASSWORD@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
-\`\`\`
-
-If the password contains \`@\`, use \`%40\` only when entering a complete URL manually. Example:
-
-\`\`\`text
-rtsp://admin:loshi%402411@192.168.1.108:554/cam/realmonitor?channel=1&subtype=0
-\`\`\`
+If a password contains reserved URL characters such as \`@\`, encode them only
+when testing a complete URL manually. In the Analog DVR Edge UI, enter the raw
+password; the agent encodes it safely.
 
 Expected result: Channel 1 video plays in VLC.
 
@@ -107,63 +100,46 @@ The installer:
 - Installs and enables \`analog-dvr-edge.service\`
 - Does not modify \`ively-agent.service\`
 
-## 6. Configure Channel 1
+## 6. Configure Through the Local UI
 
-Open the deployed configuration:
-
-\`\`\`bash
-sudo nano /opt/ively/analog-dvr-edge/configs/dvr_channels.json
-\`\`\`
-
-For the first main-stream test, use this format. Put the **raw password** in JSON; do not replace \`@\` with \`%40\` here because the agent encodes it safely.
-
-\`\`\`json
-{
-  "site_prefix": "loshitha_analog_dvr",
-  "dvr": {
-    "ip": "192.168.1.108",
-    "username": "admin",
-    "password": "YOUR_DVR_PASSWORD",
-    "channels": [1]
-  },
-  "media": {
-    "rtsp_publish_host": "127.0.0.1",
-    "rtsp_publish_port": 8554,
-    "width": 640,
-    "height": 360,
-    "fps": 10,
-    "bitrate": "512k",
-    "maxrate": "580k",
-    "bufsize": "1024k"
-  },
-  "rtsp_candidates": [
-    "rtsp://{username}:{password}@{ip}:554/cam/realmonitor?channel={channel}&subtype=0"
-  ]
-}
-\`\`\`
-
-The published stream name for the above configuration is:
+Open this page on the Mini PC:
 
 \`\`\`text
-loshitha_analog_dvr_ch1_low
+http://127.0.0.1:8090/setup
 \`\`\`
 
-## 7. Probe Before Starting Workers
+Fill the fields in this order:
 
-Run this on the Mini PC:
+1. **Stream Prefix**: a unique site name, such as \`customer_site_dvr\`.
+2. **DVR Channels**: start with \`1\`; add more only after the first works.
+3. **DVR IP Address**, **Username**, and **Password**: the local DVR values.
+4. **Video Mode**: choose H.264 passthrough for an H.264 input. Choose H.264
+   transcode for an H.265 source or where resolution/FPS must change.
+5. **RTSP URL Candidates**: enter the exact vendor URL template. Use
+   \`{username}\`, \`{password}\`, \`{ip}\`, and \`{channel}\` placeholders.
+   Put the most likely working URL first; the agent tries each candidate in
+   order for every channel.
+6. **Standalone Mobile HLS**: for this DVR-only Mini PC, select
+   **Manage 30-second mobile buffer**.
+7. Click **Save**, then **Test Channels**. Confirm required channels report
+   \`ok: true\`.
+8. Click **Apply and Start**.
 
-\`\`\`bash
-cd /opt/ively/analog-dvr-edge
-sudo ./venv/bin/python -m agent.main --config configs/dvr_channels.json --probe-only
-\`\`\`
+Customer and Site selection is optional. It appears after setting
+\`IVELY_API_BASE\` and \`IVELY_API_TOKEN\` in the service environment; it uses
+the cloud API only and does not store database credentials on the Mini PC.
 
-Expected result:
+## 7. Test and Preview Streams in the Local UI
 
-\`\`\`text
-OK   rtsp://...
-\`\`\`
+After **Apply and Start**, the Stream Status panel shows each stream name,
+publisher state, and restart count. Each running channel also shows:
 
-If it shows \`FAIL\` or \`No working RTSP URL\`, stop here. Check the DVR IP, password, RTSP port, same-LAN connection, and whether Channel 1 has a camera signal.
+- **HLS Preview**: opens the local MediaMTX HLS player on port \`8888\`.
+- **WebRTC Preview**: opens the local MediaMTX WebRTC player on port \`8889\`.
+
+Use these preview buttons to confirm real playback directly on the Mini PC. If
+Test Channels fails, check the DVR IP, credentials, RTSP port, channel mapping,
+camera signal, and Mini PC-to-DVR LAN connection before continuing.
 
 ## 8. Start the Analog DVR Edge Service
 

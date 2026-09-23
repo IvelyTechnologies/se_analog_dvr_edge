@@ -86,6 +86,8 @@ def test_standalone_hls_is_opt_in_and_restarts_mediamtx(tmp_path: Path, monkeypa
     }
 
     assert runtime._configure_standalone_mobile_hls(config) is True
+    assert restarted == []
+    runtime._restart_mediamtx()
     assert restarted == [["systemctl", "restart", "mediamtx"]]
     assert runtime._configure_standalone_mobile_hls(config) is False
     assert restarted == [["systemctl", "restart", "mediamtx"]]
@@ -99,3 +101,38 @@ def test_shared_mediamtx_hls_is_not_changed_without_opt_in(tmp_path: Path) -> No
 
     assert runtime._configure_standalone_mobile_hls({"mediamtx": {"config_path": str(config_path)}}) is False
     assert config_path.read_text(encoding="utf-8") == original
+
+
+def test_standalone_start_restarts_after_hls_and_paths_are_written(tmp_path: Path, monkeypatch) -> None:
+    media_config = tmp_path / "mediamtx.yml"
+    media_config.write_text("paths:\n", encoding="utf-8")
+    config_path = tmp_path / "dvr_channels.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "site_prefix": "hikvision_analog_dvr",
+                "dvr": {"ip": "192.168.1.64", "channels": [1]},
+                "media": {"video_mode": "copy"},
+                "mediamtx": {
+                    "manage_hls": True,
+                    "config_path": str(media_config),
+                    "hls_segment_duration": "2s",
+                    "hls_segment_count": 45,
+                },
+                "rtsp_candidates": ["rtsp://{ip}/Streaming/Channels/{channel}01"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runtime = AnalogDvrRuntime(str(config_path))
+    snapshots: list[str] = []
+    monkeypatch.setattr(runtime, "probe", lambda: [])
+    monkeypatch.setattr(runtime, "_restart_mediamtx", lambda: snapshots.append(media_config.read_text()))
+
+    runtime.start()
+
+    assert len(snapshots) == 1
+    assert "hlsSegmentDuration: 2s" in snapshots[0]
+    assert "hlsSegmentCount: 45" in snapshots[0]
+    assert "hikvision_analog_dvr_ch1_low:" in snapshots[0]
+    runtime.stop()

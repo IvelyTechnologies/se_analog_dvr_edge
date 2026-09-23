@@ -23,6 +23,7 @@ def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> lis
         # Bound RTSP setup/read waits so a DVR or LAN outage makes FFmpeg exit
         # and ChannelWorker can retry instead of leaving a hung publisher.
         "-timeout", "10000000",
+        "-rw_timeout", "10000000",
         "-fflags", "+genpts+discardcorrupt", "-err_detect", "ignore_err",
         "-ec", "guess_mvs+deblock", "-use_wallclock_as_timestamps", "1",
         "-analyzeduration", "5000000", "-probesize", "5000000",

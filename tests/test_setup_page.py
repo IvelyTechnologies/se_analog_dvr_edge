@@ -8,4 +8,6 @@ def test_setup_page_has_configuration_controls():
     assert 'id="site_select"' in page
     assert '/api/provision/customers' in page
     assert "Apply and Start" in page
+    assert "HLS Preview" in page
+    assert "WebRTC Preview" in page
     assert "Leave blank to keep saved password" in page
