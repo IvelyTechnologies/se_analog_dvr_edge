@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from pathlib import Path
 
 from agent.runtime import AnalogDvrRuntime
@@ -63,6 +65,42 @@ def test_start_does_not_block_publishers_when_paths_were_added(tmp_path, monkeyp
     status = runtime.start()
 
     assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
+    runtime.stop()
+
+
+def test_status_is_available_while_a_slow_dvr_probe_runs(tmp_path, monkeypatch):
+    path = tmp_path / "dvr_channels.json"
+    path.write_text(
+        json.dumps({
+            "site_prefix": "site_dvr",
+            "dvr": {"ip": "192.168.1.10", "channels": [1]},
+            "media": {"video_mode": "copy"},
+            "rtsp_candidates": ["rtsp://{ip}/{channel}"],
+        }),
+        encoding="utf-8",
+    )
+    runtime = AnalogDvrRuntime(str(path))
+    probe_started = threading.Event()
+    release_probe = threading.Event()
+
+    monkeypatch.setattr(runtime, "_ensure_mediamtx_paths", lambda _config: [])
+
+    def slow_probe():
+        probe_started.set()
+        release_probe.wait(timeout=2)
+        return []
+
+    monkeypatch.setattr(runtime, "probe", slow_probe)
+    thread = threading.Thread(target=runtime.start)
+    thread.start()
+    assert probe_started.wait(timeout=1)
+
+    started = time.monotonic()
+    runtime.status()
+    assert time.monotonic() - started < 0.2
+
+    release_probe.set()
+    thread.join(timeout=2)
     runtime.stop()
 
 

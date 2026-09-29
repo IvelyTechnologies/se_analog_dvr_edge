@@ -15,6 +15,10 @@ class AnalogDvrRuntime:
     def __init__(self, config_path: str = DEFAULT_CONFIG_PATH):
         self.config_path = config_path
         self.lock = threading.RLock()
+        # Startup performs network probes and can take several minutes when a
+        # DVR is not configured yet. Serialize starts separately, but never
+        # hold the status/config lock during those slow operations.
+        self._start_lock = threading.Lock()
         self.workers: list[ChannelWorker] = []
         self.last_probe: list[dict[str, Any]] = []
         self.running = False
@@ -137,11 +141,12 @@ class AnalogDvrRuntime:
         return results
 
     def start(self) -> dict[str, Any]:
-        with self.lock:
-            self._stop_event.clear()
-            self.stop_locked()
-            self.last_start_error = None
-            cfg = self.load()
+        with self._start_lock:
+            with self.lock:
+                self._stop_event.clear()
+                self.stop_locked()
+                self.last_start_error = None
+                cfg = self.load()
             try:
                 hls_changed = self._configure_standalone_mobile_hls(cfg)
                 added_paths = self._ensure_mediamtx_paths(cfg)
@@ -174,27 +179,32 @@ class AnalogDvrRuntime:
 
             media = cfg.get("media") or {}
             probe_results = self.probe()
-            for item in probe_results:
-                if not item["ok"]:
-                    logger.warning(
-                        "stream=%s skipped; no working RTSP URL", item["stream_name"]
+            with self.lock:
+                # A stop can arrive while a slow DVR probe is running. Do not
+                # publish new workers after that explicit stop request.
+                if self._stop_event.is_set():
+                    return self.status()
+                for item in probe_results:
+                    if not item["ok"]:
+                        logger.warning(
+                            "stream=%s skipped; no working RTSP URL", item["stream_name"]
+                        )
+                        continue
+                    publish_url = self.build_publish_url(media, item["stream_name"])
+                    worker = ChannelWorker(
+                        item["stream_name"],
+                        item["selected_url"],
+                        publish_url,
+                        media,
                     )
-                    continue
-                publish_url = self.build_publish_url(media, item["stream_name"])
-                worker = ChannelWorker(
-                    item["stream_name"],
-                    item["selected_url"],
-                    publish_url,
-                    media,
-                )
-                self.workers.append(worker)
-                worker.start()
-            self.running = bool(self.workers)
-            if not self.running:
-                self.last_start_error = "No DVR channel is reachable yet; retrying automatically."
-                self._schedule_recovery_locked()
-            logger.info("runtime started workers=%s", len(self.workers))
-            return self.status()
+                    self.workers.append(worker)
+                    worker.start()
+                self.running = bool(self.workers)
+                if not self.running:
+                    self.last_start_error = "No DVR channel is reachable yet; retrying automatically."
+                    self._schedule_recovery_locked()
+                logger.info("runtime started workers=%s", len(self.workers))
+                return self.status()
 
     def _schedule_recovery_locked(self) -> None:
         """Retry discovery after boot when the DVR network is not ready yet."""
