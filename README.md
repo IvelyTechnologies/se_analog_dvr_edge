@@ -102,6 +102,7 @@ FFmpeg workers, or existing NVR Edge publishing.
 ### Recovery Behavior
 
 - The service starts automatically after a Mini PC reboot and waits for MediaMTX.
+- Analog DVR Edge never restarts a healthy MediaMTX service. It only retries its own affected DVR publishers.
 - If the DVR or local LAN is unavailable during boot, it retries DVR discovery every 10 seconds.
 - If an active DVR RTSP connection drops, its FFmpeg publisher exits within the timeout and retries every 5 seconds.
 - The Ively Edge MediaMTX generator preserves Analog DVR publisher paths, so an NVR Edge update does not remove Analog streams.
@@ -113,12 +114,17 @@ For an existing NVR + DVR installation, Ively Edge owns HLS segment retention
 and Analog DVR Edge must use the existing settings.
 
 For a DVR-only installation, the setup UI enables **Standalone Mobile HLS** by
-default. This writes the following profile to MediaMTX and restarts it once:
+default. This writes the following profile to the MediaMTX configuration:
 
 ```text
 hlsSegmentDuration: 2s
 hlsSegmentCount: 45
 ```
+
+After changing DVR paths or this HLS profile, the setup status returns the one
+manual maintenance command required to activate the MediaMTX configuration. Run
+it once, then restart Analog DVR Edge. Normal configuration saves, camera
+recovery, LAN recovery, and browser playback must not restart MediaMTX.
 
 For the mobile HLS playback profile, Ively Edge retains 45 two-second segments
 (about 90 seconds). The dashboard player starts roughly 30 seconds behind the
@@ -126,11 +132,11 @@ live edge. This gives phone networks time to fetch already-created segments and
 applies equally to NVR and analog DVR streams.
 
 When an Ively Edge upgrade regenerates MediaMTX configuration, restart both
-publishers in this order. For a DVR-only installation, restart only
-`analog-dvr-edge` after saving the UI configuration.
+publishers in this order. After an explicit MediaMTX configuration change at a
+DVR-only installation, run the same controlled sequence:
 
 ```bash
-sudo systemctl restart ively-agent
+sudo systemctl restart mediamtx
 sleep 5
 sudo systemctl restart analog-dvr-edge
 ```

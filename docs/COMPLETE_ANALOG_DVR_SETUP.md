@@ -123,7 +123,18 @@ Fill the fields in this order:
    **Manage 30-second mobile buffer**.
 7. Click **Save**, then **Test Channels**. Confirm required channels report
    \`ok: true\`.
-8. Click **Apply and Start**.
+8. Click **Apply and Start**. If the status says that MediaMTX configuration
+   was updated, run the displayed manual maintenance sequence once:
+
+   ```bash
+   sudo systemctl restart mediamtx
+   sleep 5
+   sudo systemctl restart analog-dvr-edge
+   ```
+
+   This is required only when DVR paths or HLS settings actually changed. Normal
+   saves, stream recovery, LAN recovery, and browser playback do not restart
+   MediaMTX.
 
 Customer and Site selection is optional. It appears after setting
 \`IVELY_API_BASE\` and \`IVELY_API_TOKEN\` in the service environment; it uses
@@ -210,8 +221,10 @@ The response must contain \`#EXTM3U\` and \`.ts\` segments.
 ### Mobile HLS Behavior
 
 For a DVR-only Mini PC, enable **Standalone Mobile HLS** in the local setup UI.
-Analog DVR Edge then configures the local MediaMTX service with two-second
-segments and 45 retained segments. The dashboard player intentionally starts
+Analog DVR Edge then writes the local MediaMTX configuration with two-second
+segments and 45 retained segments. A one-time, manual MediaMTX restart is
+required only when those settings or the DVR publisher paths change. The
+dashboard player intentionally starts
 around 30 seconds behind live, which prevents short mobile-data delays from
 freezing the video.
 
