@@ -35,7 +35,11 @@ def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> lis
 
     if video_mode == "copy":
         return command + [
-            "-c:v", "copy", "-f", "rtsp", "-rtsp_transport", "tcp", publish_url,
+            # Keep RTP payloads below the WireGuard MTU. Without this,
+            # MediaMTX must remux the DVR's 1460-byte RTP packets for every
+            # reader, adding avoidable work and latency to HLS/WebRTC.
+            "-c:v", "copy", "-pkt_size", "1200",
+            "-f", "rtsp", "-rtsp_transport", "tcp", publish_url,
         ]
 
     width = str(media.get("width", 640))
