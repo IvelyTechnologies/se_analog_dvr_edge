@@ -1,5 +1,4 @@
 import json
-import subprocess
 import threading
 from pathlib import Path
 from typing import Any
@@ -97,17 +96,6 @@ class AnalogDvrRuntime:
         )
         return changed
 
-    @staticmethod
-    def _restart_mediamtx() -> None:
-        """Reload MediaMTX once after standalone settings and paths are written."""
-        subprocess.run(
-            ["systemctl", "restart", "mediamtx"],
-            check=True,
-            timeout=30,
-            capture_output=True,
-            text=True,
-        )
-
     def build_publish_url(self, media: dict, name: str) -> str:
         host = media.get("rtsp_publish_host", "127.0.0.1")
         port = int(media.get("rtsp_publish_port", 8554))
@@ -144,38 +132,37 @@ class AnalogDvrRuntime:
         with self._start_lock:
             with self.lock:
                 self._stop_event.clear()
-                self.stop_locked()
                 self.last_start_error = None
                 cfg = self.load()
             try:
                 hls_changed = self._configure_standalone_mobile_hls(cfg)
                 added_paths = self._ensure_mediamtx_paths(cfg)
-                standalone_hls = bool((cfg.get("mediamtx") or {}).get("manage_hls", False))
-                if standalone_hls and (hls_changed or added_paths):
-                    # Write both settings and paths before the single restart;
-                    # otherwise first boot can load HLS settings without the
-                    # new DVR publisher paths.
-                    self._restart_mediamtx()
-                    logger.info(
-                        "restarted MediaMTX after standalone DVR configuration hls_changed=%s paths=%s",
-                        hls_changed,
-                        added_paths,
-                    )
             except Exception as exc:
                 self.last_start_error = str(exc)
                 logger.exception("could not register MediaMTX publisher paths")
                 return self.status()
 
-            if added_paths:
-                if standalone_hls:
-                    logger.info("MediaMTX DVR publisher paths activated. paths=%s", added_paths)
-                else:
-                    # In a shared NVR + DVR install, Ively Edge owns the
-                    # MediaMTX lifecycle, so do not restart it from here.
-                    logger.warning(
-                        "MediaMTX paths registered; DVR publishers will retry until MediaMTX reloads. paths=%s",
-                        added_paths,
+            if hls_changed or added_paths:
+                # Keep an active MediaMTX process alive. Restarting it tears
+                # down every RTSP, HLS and WebRTC session, so an operator must
+                # perform the one required reload at a deliberate maintenance
+                # moment after paths or HLS settings have changed.
+                changes: list[str] = []
+                if hls_changed:
+                    changes.append("HLS settings")
+                if added_paths:
+                    changes.append(f"publisher paths: {', '.join(added_paths)}")
+                with self.lock:
+                    self.last_start_error = (
+                        f"MediaMTX configuration updated ({'; '.join(changes)}). "
+                        "Run 'sudo systemctl restart mediamtx' once, then "
+                        "'sudo systemctl restart analog-dvr-edge'."
                     )
+                logger.warning("%s", self.last_start_error)
+                return self.status()
+
+            with self.lock:
+                self.stop_locked()
 
             media = cfg.get("media") or {}
             probe_results = self.probe()

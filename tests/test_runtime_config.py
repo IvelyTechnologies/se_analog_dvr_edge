@@ -47,7 +47,7 @@ def test_start_schedules_recovery_when_all_dvr_channels_are_unreachable(tmp_path
     runtime.stop()
 
 
-def test_start_does_not_block_publishers_when_paths_were_added(tmp_path, monkeypatch):
+def test_start_requires_manual_mediamtx_reload_when_paths_were_added(tmp_path, monkeypatch):
     path = tmp_path / "dvr_channels.json"
     path.write_text(
         json.dumps({
@@ -64,7 +64,9 @@ def test_start_does_not_block_publishers_when_paths_were_added(tmp_path, monkeyp
 
     status = runtime.start()
 
-    assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
+    assert status["running"] is False
+    assert "MediaMTX configuration updated" in status["last_start_error"]
+    assert "site_dvr_ch1_low" in status["last_start_error"]
     runtime.stop()
 
 
@@ -104,16 +106,10 @@ def test_status_is_available_while_a_slow_dvr_probe_runs(tmp_path, monkeypatch):
     runtime.stop()
 
 
-def test_standalone_hls_is_opt_in_and_restarts_mediamtx(tmp_path: Path, monkeypatch) -> None:
+def test_standalone_hls_is_opt_in_without_restarting_mediamtx(tmp_path: Path) -> None:
     config_path = tmp_path / "mediamtx.yml"
     config_path.write_text("paths:\n", encoding="utf-8")
     runtime = AnalogDvrRuntime()
-    restarted: list[list[str]] = []
-
-    def fake_run(command, **_kwargs):
-        restarted.append(command)
-
-    monkeypatch.setattr("agent.runtime.subprocess.run", fake_run)
     config = {
         "mediamtx": {
             "manage_hls": True,
@@ -124,11 +120,7 @@ def test_standalone_hls_is_opt_in_and_restarts_mediamtx(tmp_path: Path, monkeypa
     }
 
     assert runtime._configure_standalone_mobile_hls(config) is True
-    assert restarted == []
-    runtime._restart_mediamtx()
-    assert restarted == [["systemctl", "restart", "mediamtx"]]
     assert runtime._configure_standalone_mobile_hls(config) is False
-    assert restarted == [["systemctl", "restart", "mediamtx"]]
 
 
 def test_shared_mediamtx_hls_is_not_changed_without_opt_in(tmp_path: Path) -> None:
@@ -141,7 +133,7 @@ def test_shared_mediamtx_hls_is_not_changed_without_opt_in(tmp_path: Path) -> No
     assert config_path.read_text(encoding="utf-8") == original
 
 
-def test_standalone_start_restarts_after_hls_and_paths_are_written(tmp_path: Path, monkeypatch) -> None:
+def test_standalone_start_requires_manual_reload_after_hls_and_paths_are_written(tmp_path: Path, monkeypatch) -> None:
     media_config = tmp_path / "mediamtx.yml"
     media_config.write_text("paths:\n", encoding="utf-8")
     config_path = tmp_path / "dvr_channels.json"
@@ -163,14 +155,14 @@ def test_standalone_start_restarts_after_hls_and_paths_are_written(tmp_path: Pat
         encoding="utf-8",
     )
     runtime = AnalogDvrRuntime(str(config_path))
-    snapshots: list[str] = []
     monkeypatch.setattr(runtime, "probe", lambda: [])
-    monkeypatch.setattr(runtime, "_restart_mediamtx", lambda: snapshots.append(media_config.read_text()))
 
-    runtime.start()
+    status = runtime.start()
 
-    assert len(snapshots) == 1
-    assert "hlsSegmentDuration: 2s" in snapshots[0]
-    assert "hlsSegmentCount: 45" in snapshots[0]
-    assert "hikvision_analog_dvr_ch1_low:" in snapshots[0]
+    updated = media_config.read_text()
+    assert "hlsSegmentDuration: 2s" in updated
+    assert "hlsSegmentCount: 45" in updated
+    assert "hikvision_analog_dvr_ch1_low:" in updated
+    assert status["running"] is False
+    assert "MediaMTX configuration updated" in status["last_start_error"]
     runtime.stop()
