@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import HTTPDigestAuthHandler, HTTPPasswordMgrWithDefaultRealm, Request, build_opener
+from uuid import uuid4
 from xml.etree import ElementTree
 
 
@@ -41,7 +42,9 @@ def _search_xml(track_id: int, start_time: str, end_time: str, max_results: int)
     # This is the "basic" CMSearchDescription schema returned by the
     # DS-7108HGHI-K1. Field order matters on older Hikvision DVR firmware.
     root = ElementTree.Element("CMSearchDescription")
-    ElementTree.SubElement(root, "searchID").text = "ively-dvr-archive-search"
+    # The DVR accepted the proven payload only with a UUID-shaped search ID.
+    # It normalizes that value with braces in the CMSearchResult response.
+    ElementTree.SubElement(root, "searchID").text = str(uuid4())
     track_list = ElementTree.SubElement(root, "trackList")
     ElementTree.SubElement(track_list, "trackID").text = str(track_id)
     times = ElementTree.SubElement(root, "timeSpanList")

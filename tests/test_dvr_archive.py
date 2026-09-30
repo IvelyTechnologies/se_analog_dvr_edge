@@ -17,6 +17,7 @@ def test_search_xml_uses_the_dvr_basic_schema_in_its_required_order():
     assert xml.index("<trackList>") < xml.index("<timeSpanList>")
     assert xml.index("<maxResults>") < xml.index("<searchResultPostion>")
     assert "//recordType.meta.std-cgi.com" in xml
+    assert "<searchID>" in xml and "ively-dvr-archive-search" not in xml
 
 
 def test_parse_search_result_returns_only_playable_segments():
