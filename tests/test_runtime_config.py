@@ -47,7 +47,7 @@ def test_start_schedules_recovery_when_all_dvr_channels_are_unreachable(tmp_path
     runtime.stop()
 
 
-def test_start_requires_manual_mediamtx_reload_when_paths_were_added(tmp_path, monkeypatch):
+def test_start_continues_when_paths_are_added_by_mediamtx_hot_reload(tmp_path, monkeypatch):
     path = tmp_path / "dvr_channels.json"
     path.write_text(
         json.dumps({
@@ -61,12 +61,12 @@ def test_start_requires_manual_mediamtx_reload_when_paths_were_added(tmp_path, m
     runtime = AnalogDvrRuntime(str(path))
     monkeypatch.setattr(runtime, "_ensure_mediamtx_paths", lambda _config: ["site_dvr_ch1_low"])
     monkeypatch.setattr(runtime, "probe", lambda: [])
+    monkeypatch.setattr(runtime, "_schedule_recovery_locked", lambda: None)
 
     status = runtime.start()
 
     assert status["running"] is False
-    assert "MediaMTX configuration updated" in status["last_start_error"]
-    assert "site_dvr_ch1_low" in status["last_start_error"]
+    assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
     runtime.stop()
 
 
@@ -133,7 +133,7 @@ def test_shared_mediamtx_hls_is_not_changed_without_opt_in(tmp_path: Path) -> No
     assert config_path.read_text(encoding="utf-8") == original
 
 
-def test_standalone_start_requires_manual_reload_after_hls_and_paths_are_written(tmp_path: Path, monkeypatch) -> None:
+def test_standalone_start_does_not_block_on_mediamtx_hot_reload(tmp_path: Path, monkeypatch) -> None:
     media_config = tmp_path / "mediamtx.yml"
     media_config.write_text("paths:\n", encoding="utf-8")
     config_path = tmp_path / "dvr_channels.json"
@@ -156,6 +156,7 @@ def test_standalone_start_requires_manual_reload_after_hls_and_paths_are_written
     )
     runtime = AnalogDvrRuntime(str(config_path))
     monkeypatch.setattr(runtime, "probe", lambda: [])
+    monkeypatch.setattr(runtime, "_schedule_recovery_locked", lambda: None)
 
     status = runtime.start()
 
@@ -164,5 +165,5 @@ def test_standalone_start_requires_manual_reload_after_hls_and_paths_are_written
     assert "hlsSegmentCount: 45" in updated
     assert "hikvision_analog_dvr_ch1_low:" in updated
     assert status["running"] is False
-    assert "MediaMTX configuration updated" in status["last_start_error"]
+    assert status["last_start_error"] == "No DVR channel is reachable yet; retrying automatically."
     runtime.stop()
