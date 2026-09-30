@@ -9,6 +9,7 @@ def test_publisher_command_has_rtsp_timeout_for_network_recovery():
     )
 
     assert command[command.index("-timeout") + 1] == "10000000"
+    assert command[command.index("-progress") + 1] == "pipe:2"
     assert "-rw_timeout" not in command
     assert command[command.index("-reorder_queue_size") + 1] == "64"
     assert command[-9:] == [

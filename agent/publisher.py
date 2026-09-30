@@ -19,6 +19,10 @@ def ffmpeg_publish_command(input_url: str, publish_url: str, media: dict) -> lis
 
     command = [
         "ffmpeg", "-hide_banner", "-loglevel", "repeat+warning",
+        # Emit an activity heartbeat. ChannelWorker uses it to detect an
+        # FFmpeg process that survives a LAN/WireGuard interruption but has
+        # stopped moving video, then reconnects that channel only.
+        "-progress", "pipe:2",
         "-rtsp_transport", "tcp", "-rtsp_flags", "prefer_tcp",
         # Bound RTSP setup/read waits so a DVR or LAN outage makes FFmpeg exit
         # and ChannelWorker can retry instead of leaving a hung publisher.
