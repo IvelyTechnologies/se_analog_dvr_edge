@@ -48,6 +48,7 @@ if [ -s "$DEST/requirements.txt" ]; then
   sudo "$DEST/venv/bin/pip" install -r "$DEST/requirements.txt"
 fi
 sudo chmod +x "$DEST/installer/run-analog-dvr-edge.sh" "$DEST/installer/uninstall.sh"
+sudo chmod +x "$DEST/installer/verify-streams.sh"
 sudo mkdir -p "$DEST/logs"
 
 if [ ! -f "$DEST/configs/dvr_channels.json" ]; then
