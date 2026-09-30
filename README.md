@@ -144,6 +144,17 @@ ffprobe -v error -rtsp_transport tcp \
 curl -sSL "http://127.0.0.1:8888/your_site_ch1_low/index.m3u8" | head
 ```
 
+Before leaving a new customer site, run the read-only verification gate. It
+checks that both services are active, every configured publisher worker exists,
+every local RTSP path is decodable, and every HLS path serves a real segment:
+
+```bash
+sudo bash /opt/ively/analog-dvr-edge/installer/verify-streams.sh
+```
+
+It returns `RESULT=PASS` only when all configured channels pass. A service that
+is merely active but has zero publisher workers returns `RESULT=FAIL`.
+
 ## Verify Service
 
 ```bash
