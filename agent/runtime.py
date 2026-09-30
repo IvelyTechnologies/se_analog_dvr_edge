@@ -101,14 +101,15 @@ class AnalogDvrRuntime:
         port = int(media.get("rtsp_publish_port", 8554))
         return f"rtsp://{host}:{port}/{name}"
 
-    def probe(self) -> list[dict[str, Any]]:
+    def probe(self, channels: list[int] | None = None) -> list[dict[str, Any]]:
         cfg = self.load()
         dvr = cfg["dvr"]
         candidates = cfg["rtsp_candidates"]
         prefix = cfg["site_prefix"]
         results: list[dict[str, Any]] = []
 
-        for channel in dvr["channels"]:
+        selected_channels = channels if channels is not None else dvr["channels"]
+        for channel in selected_channels:
             name = stream_name(prefix, int(channel))
             logger.info("probing channel=%s stream=%s", channel, name)
             url, attempts = find_working_url(dvr, candidates, int(channel))
@@ -183,30 +184,98 @@ class AnalogDvrRuntime:
                     self.workers.append(worker)
                     worker.start()
                 self.running = bool(self.workers)
+                missing_channels = [item["channel"] for item in probe_results if not item["ok"]]
                 if not self.running:
                     self.last_start_error = "No DVR channel is reachable yet; retrying automatically."
+                    self._schedule_recovery_locked()
+                elif missing_channels:
+                    self.last_start_error = (
+                        f"DVR channels {', '.join(map(str, missing_channels))} are unavailable; "
+                        "retrying automatically."
+                    )
                     self._schedule_recovery_locked()
                 logger.info("runtime started workers=%s", len(self.workers))
                 return self.status()
 
     def _schedule_recovery_locked(self) -> None:
-        """Retry discovery after boot when the DVR network is not ready yet."""
+        """Retry only missing channels after boot or a DVR/LAN interruption."""
         if self._recovery_thread and self._recovery_thread.is_alive():
             return
 
-        def retry_until_running() -> None:
+        def retry_until_recovered() -> None:
             while not self._stop_event.wait(10):
-                result = self.start()
-                if result["running"]:
-                    logger.info("DVR recovery succeeded")
+                if self._recover_missing_channels():
+                    logger.info("DVR channel recovery succeeded")
                     return
 
         self._recovery_thread = threading.Thread(
-            target=retry_until_running,
+            target=retry_until_recovered,
             daemon=True,
             name="analog-dvr-recovery",
         )
         self._recovery_thread.start()
+
+    def _recover_missing_channels(self) -> bool:
+        """Probe and start only channels that do not already have a worker.
+
+        A power recovery can bring up the Mini PC before the local DVR route is
+        usable. Never call ``start()`` here: that would stop healthy streams
+        while retrying the one or two channels that lost their initial probe.
+        """
+        with self._start_lock:
+            cfg = self.load()
+            dvr = cfg["dvr"]
+            prefix = cfg["site_prefix"]
+            with self.lock:
+                if self._stop_event.is_set():
+                    return True
+                active_names = {worker.name for worker in self.workers}
+                missing_channels = [
+                    int(channel)
+                    for channel in dvr["channels"]
+                    if stream_name(prefix, int(channel)) not in active_names
+                ]
+
+            if not missing_channels:
+                with self.lock:
+                    self.last_start_error = None
+                return True
+
+            logger.info("retrying unavailable DVR channels=%s", missing_channels)
+            probe_results = self.probe(missing_channels)
+            media = cfg.get("media") or {}
+            with self.lock:
+                if self._stop_event.is_set():
+                    return True
+                active_names = {worker.name for worker in self.workers}
+                for item in probe_results:
+                    if not item["ok"] or item["stream_name"] in active_names:
+                        continue
+                    worker = ChannelWorker(
+                        item["stream_name"],
+                        item["selected_url"],
+                        self.build_publish_url(media, item["stream_name"]),
+                        media,
+                    )
+                    self.workers.append(worker)
+                    worker.start()
+                    active_names.add(item["stream_name"])
+                    logger.info("recovered DVR channel=%s stream=%s", item["channel"], item["stream_name"])
+
+                still_missing = [
+                    int(channel)
+                    for channel in dvr["channels"]
+                    if stream_name(prefix, int(channel)) not in active_names
+                ]
+                self.running = bool(self.workers)
+                if still_missing:
+                    self.last_start_error = (
+                        f"DVR channels {', '.join(map(str, still_missing))} are unavailable; "
+                        "retrying automatically."
+                    )
+                    return False
+                self.last_start_error = None
+                return True
 
     def stop_locked(self) -> None:
         for worker in self.workers:
