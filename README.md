@@ -121,25 +121,19 @@ hlsSegmentDuration: 2s
 hlsSegmentCount: 45
 ```
 
-After changing DVR paths or this HLS profile, the setup status returns the one
-manual maintenance command required to activate the MediaMTX configuration. Run
-it once, then restart Analog DVR Edge. Normal configuration saves, camera
-recovery, LAN recovery, and browser playback must not restart MediaMTX.
+MediaMTX watches this configuration and reloads it without a process restart.
+The DVR Edge starts (or retries) its publishers after a path or HLS-profile
+update. Normal configuration saves, camera recovery, LAN recovery, browser
+playback, and boot recovery must not restart MediaMTX.
 
 For the mobile HLS playback profile, Ively Edge retains 45 two-second segments
 (about 90 seconds). The dashboard player starts roughly 30 seconds behind the
 live edge. This gives phone networks time to fetch already-created segments and
 applies equally to NVR and analog DVR streams.
 
-When an Ively Edge upgrade regenerates MediaMTX configuration, restart both
-publishers in this order. After an explicit MediaMTX configuration change at a
-DVR-only installation, run the same controlled sequence:
-
-```bash
-sudo systemctl restart mediamtx
-sleep 5
-sudo systemctl restart analog-dvr-edge
-```
+Restart MediaMTX only for explicit MediaMTX maintenance, an actual MediaMTX
+failure, or a power-recovery issue that prevents it from becoming active. A
+normal DVR Edge restart does not restart MediaMTX.
 
 Then confirm an analog path has republished before checking the dashboard:
 

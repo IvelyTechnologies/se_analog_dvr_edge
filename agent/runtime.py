@@ -143,23 +143,19 @@ class AnalogDvrRuntime:
                 return self.status()
 
             if hls_changed or added_paths:
-                # Keep an active MediaMTX process alive. Restarting it tears
-                # down every RTSP, HLS and WebRTC session, so an operator must
-                # perform the one required reload at a deliberate maintenance
-                # moment after paths or HLS settings have changed.
+                # MediaMTX watches its configuration and applies this update
+                # without a process restart. Do not turn a normal initial
+                # configuration write into an outage: the publisher workers
+                # below retry until the hot-reloaded paths are ready.
                 changes: list[str] = []
                 if hls_changed:
                     changes.append("HLS settings")
                 if added_paths:
                     changes.append(f"publisher paths: {', '.join(added_paths)}")
-                with self.lock:
-                    self.last_start_error = (
-                        f"MediaMTX configuration updated ({'; '.join(changes)}). "
-                        "Run 'sudo systemctl restart mediamtx' once, then "
-                        "'sudo systemctl restart analog-dvr-edge'."
-                    )
-                logger.warning("%s", self.last_start_error)
-                return self.status()
+                logger.info(
+                    "MediaMTX configuration updated (%s); starting DVR publishers without restarting MediaMTX.",
+                    "; ".join(changes),
+                )
 
             with self.lock:
                 self.stop_locked()
