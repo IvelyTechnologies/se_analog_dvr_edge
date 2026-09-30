@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from agent.cloud_api import CloudApiError, list_customers, list_site_cameras, list_sites
 from agent.config import DEFAULT_CONFIG_PATH
 from agent.diagnostics import diagnostics
+from agent.dvr_archive import DvrArchiveError, search_recordings
 from agent.logging_config import logger
 from agent.runtime import AnalogDvrRuntime
 from agent.setup_page import build_setup_page
@@ -84,10 +85,23 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": True, "results": runtime.public_probe()})
             elif path in ("/start", "/reload", "/workers/reload"):
                 self._send_json(runtime.start())
+            elif path == "/archive/search":
+                data = self._read_json()
+                config = runtime.load()
+                results = search_recordings(
+                    config["dvr"],
+                    int(data.get("channel")),
+                    str(data.get("start_time") or ""),
+                    str(data.get("end_time") or ""),
+                    int(data.get("max_results", 32)),
+                )
+                self._send_json({"ok": True, "results": results})
             elif path == "/stop":
                 self._send_json(runtime.stop())
             else:
                 self._send_json({"ok": False, "error": "not found"}, 404)
+        except (DvrArchiveError, ValueError) as exc:
+            self._send_json({"ok": False, "error": str(exc)}, 400)
         except Exception as exc:
             logger.exception("POST %s failed", path)
             self._send_json({"ok": False, "error": str(exc)}, 500)
