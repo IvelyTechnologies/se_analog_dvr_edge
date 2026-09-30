@@ -70,6 +70,52 @@ def test_start_continues_when_paths_are_added_by_mediamtx_hot_reload(tmp_path, m
     runtime.stop()
 
 
+def test_partial_start_schedules_recovery_for_only_unreachable_channels(tmp_path, monkeypatch):
+    path = tmp_path / "dvr_channels.json"
+    path.write_text(
+        json.dumps({
+            "site_prefix": "site_dvr",
+            "dvr": {"ip": "192.168.1.10", "channels": [1, 2]},
+            "media": {"video_mode": "copy"},
+            "rtsp_candidates": ["rtsp://{ip}/{channel}"],
+        }),
+        encoding="utf-8",
+    )
+    runtime = AnalogDvrRuntime(str(path))
+    monkeypatch.setattr(runtime, "_ensure_mediamtx_paths", lambda _config: [])
+    monkeypatch.setattr(runtime, "_schedule_recovery_locked", lambda: None)
+    monkeypatch.setattr(
+        runtime,
+        "probe",
+        lambda _channels=None: [
+            {"channel": 1, "stream_name": "site_dvr_ch1_low", "ok": False, "selected_url": None, "attempts": []},
+            {"channel": 2, "stream_name": "site_dvr_ch2_low", "ok": True, "selected_url": "rtsp://192.168.1.10/2", "attempts": []},
+        ],
+    )
+
+    class Worker:
+        def __init__(self, *args):
+            self.name = args[0]
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def status(self):
+            return {"stream_name": self.name, "input_url": "", "publish_url": "", "thread_alive": True, "process_running": True}
+
+    monkeypatch.setattr("agent.runtime.ChannelWorker", Worker)
+
+    status = runtime.start()
+
+    assert status["running"] is True
+    assert status["last_start_error"] == "DVR channels 1 are unavailable; retrying automatically."
+    assert [worker.name for worker in runtime.workers] == ["site_dvr_ch2_low"]
+    runtime.stop()
+
+
 def test_status_is_available_while_a_slow_dvr_probe_runs(tmp_path, monkeypatch):
     path = tmp_path / "dvr_channels.json"
     path.write_text(
